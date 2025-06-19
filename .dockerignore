@@ -1,0 +1,82 @@
+# Kite Trading Server - Docker Ignore File
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+README_FastAPI.md
+*.md
+docs/
+
+# Sensitive data
+kite_session.json
+*.session
+*.token
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+trading_data/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+.ENV/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing and development
+test_*.py
+*_test.py
+test_env.py
+test_trade.py
+tests/
+.tox/
+.nox/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Docker files (avoid recursion)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Local development
+local_config.py
+dev_settings.py
+client_example.py
