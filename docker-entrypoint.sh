@@ -1,40 +1,32 @@
 #!/bin/bash
-# Kite Trading Server - Docker Entrypoint Script
-
 set -e
 
-# Create necessary directories
-mkdir -p /app/data /app/logs
+APP_DATA=${DATA_DIR:-/app/data}
+APP_LOGS=${LOG_DIR:-/app/logs}
 
-# Set proper permissions
-chown -R appuser:appuser /app/data /app/logs
+mkdir -p "$APP_DATA" "$APP_LOGS"
+chown -R appuser:appuser "$APP_DATA" "$APP_LOGS"
 
-# Function to wait for dependencies
 wait_for_dependencies() {
     echo "Checking dependencies..."
-    # Add any dependency checks here if needed
     echo "Dependencies ready."
 }
 
-# Function to run FastAPI server
 run_fastapi() {
     echo "Starting FastAPI Trading Server..."
     exec python fastapi_server.py
 }
 
-# Function to run MCP server
 run_mcp() {
     echo "Starting MCP Trading Server..."
     exec python index.py
 }
 
-# Function to run setup authentication
 run_setup_auth() {
     echo "Running authentication setup..."
     exec python setup_auth.py
 }
 
-# Main execution logic
 case "${1:-fastapi}" in
     fastapi)
         wait_for_dependencies
@@ -49,9 +41,6 @@ case "${1:-fastapi}" in
         ;;
     *)
         echo "Usage: $0 {fastapi|mcp|setup-auth}"
-        echo "  fastapi    - Start FastAPI server (default)"
-        echo "  mcp        - Start MCP server for Claude Desktop"
-        echo "  setup-auth - Run authentication setup"
         exit 1
         ;;
 esac

@@ -129,7 +129,7 @@ docker-compose run --rm fastapi-server setup-auth
 ### Option 2: Manual Session File
 ```bash
 # If you have existing session file
-cp kite_session.json ./data/
+cp /app/data/kite_session.json ./data/
 docker-compose up fastapi-server
 ```
 

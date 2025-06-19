@@ -1,69 +1,85 @@
-import sys
 import os
+import sys
 from datetime import datetime
+from pathlib import Path
 
-# Load environment variables from .env file
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    print("Warning: python-dotenv not found. Please install it with: pip install python-dotenv", file=sys.stderr)
-    print("Falling back to system environment variables only.", file=sys.stderr)
+    print("Warning: python-dotenv not found.", file=sys.stderr)
 
 try:
     from kiteconnect import KiteConnect
+    from kiteconnect.exceptions import KiteException, InputException, NetworkException, TokenException
 except ImportError:
-    print("Warning: kiteconnect not found. Please install it with: pip install kiteconnect", file=sys.stderr)
-    # Mock KiteConnect for testing
     class KiteConnect:
-        def __init__(self, api_key):
-            self.api_key = api_key
-        def set_access_token(self, token):
-            _ = token  # Acknowledge parameter
-            pass
-        def place_order(self, variety, **kwargs):
-            _ = variety  # Acknowledge parameter
-            _ = kwargs   # Acknowledge parameter
-            return {"order_id": "MOCK_ORDER_ID"}
-        def positions(self):
-            return {"net": []}
+        def __init__(self, api_key): pass
+        def set_access_token(self, token): pass
+        def place_order(self, variety, **kwargs): return {"order_id": "MOCK_ORDER_ID"}
+        def positions(self): return {"net": []}
+        def orders(self): return []
+
+    # Mock exceptions for when kiteconnect is not installed
+    class KiteException(Exception): pass
+    class InputException(KiteException): pass
+    class NetworkException(KiteException): pass
+    class TokenException(KiteException): pass
 
 from logger import log_order
 from auth import get_valid_access_token
 
-# API credentials - Load from .env file
-api_key = os.getenv("KITE_API_KEY")
+API_KEY = os.getenv("KITE_API_KEY")
+DATA_DIR = os.getenv("DATA_DIR", "./data")
+Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
 
-# Validate required environment variable
-if not api_key:
-    print("❌ Error: KITE_API_KEY not found in environment variables", file=sys.stderr)
-    print("   Please set KITE_API_KEY in your .env file", file=sys.stderr)
+if not API_KEY:
+    print("❌ KITE_API_KEY not found in environment", file=sys.stderr)
     exit(1)
 
-# Initialize KiteConnect client
-kc = KiteConnect(api_key=api_key)
+kc = KiteConnect(api_key=API_KEY)
 
-# Use the auth system directly
+def _get_user_friendly_error(error_message: str) -> str:
+    """Convert technical error messages to user-friendly messages"""
+    error_lower = error_message.lower()
+
+    if "insufficient stock holding" in error_lower or "holding quantity: 0" in error_lower:
+        return "❌ Cannot sell: You don't own this stock or don't have enough shares to sell."
+
+    elif "insufficient funds" in error_lower or "insufficient balance" in error_lower:
+        return "❌ Cannot buy: Insufficient funds in your account."
+
+    elif "invalid tradingsymbol" in error_lower or "instrument not found" in error_lower:
+        return "❌ Invalid stock symbol. Please check the stock name/symbol."
+
+    elif "market is closed" in error_lower or "outside market hours" in error_lower:
+        return "❌ Market is closed. Trading hours are 9:30 AM to 3:30 PM on weekdays."
+
+    elif "price band" in error_lower or "circuit limit" in error_lower:
+        return "❌ Price is outside allowed range (circuit limits). Please adjust your price."
+
+    elif "minimum quantity" in error_lower or "lot size" in error_lower:
+        return "❌ Invalid quantity. Please check minimum lot size requirements for this instrument."
+
+    elif "pending orders" in error_lower:
+        return "❌ You have pending orders for this stock. Cancel them first or wait for execution."
+
+    elif "invalid price" in error_lower:
+        return "❌ Invalid price specified. Please check your limit/trigger price."
+
+    elif "order rejected" in error_lower:
+        return "❌ Order rejected by exchange. Please check order parameters and try again."
+
+    else:
+        return f"❌ Trading error: {error_message}"
 
 async def place_order(tradingsymbol, quantity, transaction_type="BUY",
-                     exchange="NSE", product="CNC", order_type="MARKET",
-                     price=None, trigger_price=None, variety="regular", validity="DAY"):
-    """Simple place_order function with fixed defaults for Claude Desktop"""
-
-    # Validate input parameters
-    if (not isinstance(tradingsymbol, str) or
-        not isinstance(quantity, (int, float)) or
-        transaction_type not in ["BUY", "SELL"]):
-        raise ValueError("Invalid input parameters")
-
+                      exchange="NSE", product="CNC", order_type="MARKET",
+                      price=None, trigger_price=None, variety="regular", validity="DAY"):
     try:
-        # Get fresh access token
         access_token = get_valid_access_token()
-        if not access_token:
-            raise Exception("Failed to get valid access token")
         kc.set_access_token(access_token)
 
-        # Build order parameters (excluding variety since it's passed separately)
         order_params = {
             "exchange": exchange,
             "tradingsymbol": tradingsymbol,
@@ -73,51 +89,34 @@ async def place_order(tradingsymbol, quantity, transaction_type="BUY",
             "order_type": order_type,
             "validity": validity
         }
+        if price is not None: order_params["price"] = price
+        if trigger_price is not None: order_params["trigger_price"] = trigger_price
 
-        # Add optional parameters
-        if price is not None:
-            order_params["price"] = price
-        if trigger_price is not None:
-            order_params["trigger_price"] = trigger_price
-
-        # Place order (variety is passed as first argument, not in params)
         response = kc.place_order(variety, **order_params)
-        timestamp = datetime.now().isoformat()
 
-        # Extract order ID from response
-        order_id = None
-        if isinstance(response, dict) and 'order_id' in response:
-            order_id = response['order_id']
+        # Handle different response formats from KiteConnect API
+        if isinstance(response, dict):
+            order_id = response.get("order_id", "UNKNOWN")
         elif isinstance(response, str):
-            order_id = response
+            order_id = response  # KiteConnect sometimes returns order_id directly as string
+        else:
+            order_id = str(response) if response else "UNKNOWN"
 
-        print(f"{transaction_type} order placed for {quantity} shares of {tradingsymbol} | Order ID: {order_id}", file=sys.stderr)
+        order_status = "UNKNOWN"
 
-        # Check order status after placement
-        order_status = None
-        if order_id:
-            try:
-                # Get order status from Zerodha
-                orders = kc.orders()
-                for order in orders:
-                    if order.get('order_id') == order_id:
-                        order_status = order.get('status', 'UNKNOWN')
-                        status_message = order.get('status_message', '')
+        try:
+            for order in kc.orders():
+                if order.get("order_id") == order_id:
+                    order_status = order.get("status", "UNKNOWN")
+                    break
+        except Exception:
+            order_status = "STATUS_CHECK_FAILED"
 
-                        print(f"📋 Order Status: {order_status}", file=sys.stderr)
-                        if status_message:
-                            print(f"💬 Status Message: {status_message}", file=sys.stderr)
-                        break
-            except Exception as status_err:
-                print(f"⚠️ Could not fetch order status: {status_err}", file=sys.stderr)
-                order_status = "STATUS_CHECK_FAILED"
-
-        # Enhanced logging with order ID, success status, and order status
         log_order(
-            timestamp=timestamp,
+            timestamp=datetime.now().isoformat(),
             type=transaction_type,
             stock=tradingsymbol,
-            quantity=int(quantity),
+            quantity=quantity,
             exchange=exchange,
             product=product,
             order_type=order_type,
@@ -128,71 +127,160 @@ async def place_order(tradingsymbol, quantity, transaction_type="BUY",
             order_status=order_status
         )
 
-        return response
+        # Return consistent success response format
+        return {
+            "status": "success",
+            "message": f"✅ {transaction_type} order placed successfully",
+            "order_id": order_id,
+            "order_status": order_status,
+            "details": {
+                "stock": tradingsymbol,
+                "quantity": quantity,
+                "transaction_type": transaction_type,
+                "exchange": exchange,
+                "product": product,
+                "order_type": order_type,
+                "price": price,
+                "trigger_price": trigger_price
+            }
+        }
 
-    except Exception as err:
-        timestamp = datetime.now().isoformat()
-        error_message = str(err)
+    except InputException as err:
+        # Handle specific trading errors gracefully
+        error_msg = str(err)
+        user_friendly_msg = _get_user_friendly_error(error_msg)
 
-        # Enhanced error detection and categorization
-        if "insufficient" in error_message.lower():
-            error_type = "INSUFFICIENT_FUNDS"
-            print(f"💰 INSUFFICIENT FUNDS: Cannot place {transaction_type} order for {quantity} {tradingsymbol}", file=sys.stderr)
-            print(f"💡 Please add funds to your account or reduce quantity", file=sys.stderr)
-        elif "margin" in error_message.lower():
-            error_type = "MARGIN_SHORTAGE"
-            print(f"📊 MARGIN SHORTAGE: Insufficient margin for {quantity} {tradingsymbol}", file=sys.stderr)
-        elif "quantity" in error_message.lower() and "holdings" in error_message.lower():
-            error_type = "INSUFFICIENT_HOLDINGS"
-            print(f"📉 INSUFFICIENT HOLDINGS: Cannot sell {quantity} {tradingsymbol} - not enough shares", file=sys.stderr)
-        elif "market" in error_message.lower() and "closed" in error_message.lower():
-            error_type = "MARKET_CLOSED"
-            print(f"🕐 MARKET CLOSED: Cannot place order outside trading hours", file=sys.stderr)
-        else:
-            error_type = "OTHER_ERROR"
-            print(f"❌ ORDER FAILED: {error_message}", file=sys.stderr)
-
-        print(f"🔍 Full error details: {err}", file=sys.stderr)
-
-        # Log failed order with enhanced error categorization
         log_order(
-            timestamp=timestamp,
+            timestamp=datetime.now().isoformat(),
             type=transaction_type,
             stock=tradingsymbol,
-            quantity=int(quantity),
+            quantity=quantity,
             exchange=exchange,
             product=product,
             order_type=order_type,
             price=price,
             trigger_price=trigger_price,
             order_id=None,
-            status=f"FAILED_{error_type}",
-            error_message=error_message,
+            status="FAILED",
+            error_message=error_msg,
             order_status="REJECTED"
         )
 
-        raise
+        # Return error response instead of raising exception
+        return {
+            "status": "error",
+            "error_type": "trading_error",
+            "message": user_friendly_msg,
+            "original_error": error_msg,
+            "order_id": None
+        }
 
+    except TokenException as err:
+        error_msg = "Authentication token expired or invalid. Please re-authenticate."
 
+        log_order(
+            timestamp=datetime.now().isoformat(),
+            type=transaction_type,
+            stock=tradingsymbol,
+            quantity=quantity,
+            exchange=exchange,
+            product=product,
+            order_type=order_type,
+            price=price,
+            trigger_price=trigger_price,
+            order_id=None,
+            status="FAILED",
+            error_message=str(err),
+            order_status="AUTH_FAILED"
+        )
 
-async def get_positions():
-    """Get current positions from Zerodha - matching JavaScript version"""
-    try:
-        # Get fresh access token
-        access_token = get_valid_access_token()
-        if not access_token:
-            raise Exception("Failed to get valid access token")
-        kc.set_access_token(access_token)
-        positions = kc.positions()
+        return {
+            "status": "error",
+            "error_type": "auth_error",
+            "message": error_msg,
+            "original_error": str(err),
+            "order_id": None
+        }
 
-        # Format positions exactly like JavaScript version
-        position_strings = []
-        for pos in positions["net"]:
-            position_str = f"stock: {pos['tradingsymbol']}, qty: {pos['quantity']}, currentPrice: {pos['last_price']}"
-            position_strings.append(position_str)
+    except NetworkException as err:
+        error_msg = "Network connection error. Please check your internet connection and try again."
 
-        return "\n".join(position_strings) if position_strings else "No positions found."
+        log_order(
+            timestamp=datetime.now().isoformat(),
+            type=transaction_type,
+            stock=tradingsymbol,
+            quantity=quantity,
+            exchange=exchange,
+            product=product,
+            order_type=order_type,
+            price=price,
+            trigger_price=trigger_price,
+            order_id=None,
+            status="FAILED",
+            error_message=str(err),
+            order_status="NETWORK_ERROR"
+        )
+
+        return {
+            "status": "error",
+            "error_type": "network_error",
+            "message": error_msg,
+            "original_error": str(err),
+            "order_id": None
+        }
 
     except Exception as err:
-        print(f"Error fetching positions: {err}", file=sys.stderr)
-        return "Failed to fetch positions."
+        # Handle any other unexpected errors
+        error_msg = f"Unexpected error occurred: {str(err)}"
+
+        log_order(
+            timestamp=datetime.now().isoformat(),
+            type=transaction_type,
+            stock=tradingsymbol,
+            quantity=quantity,
+            exchange=exchange,
+            product=product,
+            order_type=order_type,
+            price=price,
+            trigger_price=trigger_price,
+            order_id=None,
+            status="FAILED",
+            error_message=str(err),
+            order_status="UNKNOWN_ERROR"
+        )
+
+        return {
+            "status": "error",
+            "error_type": "unknown_error",
+            "message": error_msg,
+            "original_error": str(err),
+            "order_id": None
+        }
+
+async def get_positions():
+    try:
+        access_token = get_valid_access_token()
+        kc.set_access_token(access_token)
+        positions = kc.positions()
+        if positions and "net" in positions and positions["net"]:
+            position_list = []
+            for p in positions["net"]:
+                if int(p.get('quantity', 0)) != 0:  # Only show non-zero positions
+                    position_list.append(
+                        f"📈 {p['tradingsymbol']}: {p['quantity']} shares @ ₹{p.get('last_price', 'N/A')}"
+                    )
+
+            if position_list:
+                return "\n".join(position_list)
+            else:
+                return "📊 No active positions found (all positions have zero quantity)."
+        return "📊 No positions found in your portfolio."
+
+    except TokenException as err:
+        return "❌ Authentication error: Please re-authenticate to view positions."
+
+    except NetworkException as err:
+        return "❌ Network error: Unable to fetch positions. Please check your connection."
+
+    except Exception as err:
+        return f"❌ Error fetching positions: {_get_user_friendly_error(str(err))}"

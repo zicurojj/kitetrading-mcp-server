@@ -6,7 +6,7 @@ A Python MCP (Model Context Protocol) server for trading operations using the Ki
 
 - **Simple trading operations**: Buy, sell, and view portfolio
 - **Real-time order execution**: Direct integration with Zerodha Kite Connect API
-- **Text file logging**: All operations logged to `order.log`
+- **Text file logging**: All operations logged to `/app/logs/order.log`
 - **Claude Desktop integration**: Works directly with Claude Desktop via MCP protocol
 
 ## Setup
@@ -172,12 +172,12 @@ Claude will automatically use the trading tools with appropriate parameters for 
 - `DEPLOYMENT_GUIDE.md`: Complete deployment guide
 
 ### Auto-generated Files
-- `kite_session.json`: Saved session data (auto-created)
-- `order.log`: Trading operations log (auto-created)
+- `/app/data/kite_session.json`: Saved session data (auto-created)
+- `/app/logs/order.log`: Trading operations log (auto-created)
 
 ## Enhanced Logging
 
-All trading operations are logged to `order.log` with detailed information:
+All trading operations are logged to `/app/logs/order.log` with detailed information:
 ```
 2024-01-01T12:00:00 | BUY | RELIANCE | Qty: 10 | NSE | CNC | MARKET
 2024-01-01T12:01:00 | SELL | TCS | Qty: 5 | NSE | CNC | LIMIT | Price: 3500

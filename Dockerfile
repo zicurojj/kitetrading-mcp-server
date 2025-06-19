@@ -64,7 +64,3 @@ CMD ["python", "fastapi_server.py"]
 # Default stage
 FROM fastapi-server as final
 
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["fastapi"]

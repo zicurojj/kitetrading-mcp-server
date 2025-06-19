@@ -188,7 +188,7 @@ python client_example.py
 
 ## 🔒 Security Notes
 
-- Session data is saved locally in `kite_session.json`
+- Session data is saved locally in `/app/data/kite_session.json`
 - Never share your API credentials or session files
 - All operations are logged for audit purposes
 - Configure CORS origins for production use

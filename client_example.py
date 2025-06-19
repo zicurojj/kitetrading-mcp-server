@@ -139,13 +139,15 @@ def main():
     if "error" in auth:
         print(f"❌ Auth check failed: {auth['error']}")
         return
-    elif not auth.get('success'):
-        print(f"⚠️  Not authenticated: {auth.get('message')}")
+    elif not auth.get('authenticated'):
+        print(f"⚠️  Not authenticated")
         print("💡 Run: python setup_auth.py")
         return
     else:
-        user_info = auth.get('user_info', {})
-        print(f"✅ Authenticated as: {user_info.get('user_name', 'Unknown')}")
+        session_info = auth.get('session', {})
+        user_name = session_info.get('user_name', 'Unknown') if session_info else 'Unknown'
+        user_id = session_info.get('user_id', 'Unknown') if session_info else 'Unknown'
+        print(f"✅ Authenticated as: {user_name} (ID: {user_id})")
     
     # 3. Get current positions
     print("\n📊 Getting current positions...")

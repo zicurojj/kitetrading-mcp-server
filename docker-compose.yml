@@ -1,6 +1,20 @@
+
 version: '3.8'
 
 services:
+
+  setup-auth:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kite-trading-auth
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    entrypoint: ["python", "setup_auth.py"]
+    restart: "no"
+
   # Kite Trading Server
   kite-trading:
     build:
@@ -16,7 +30,7 @@ services:
       - KITE_REDIRECT_URI=${KITE_REDIRECT_URI}
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8000
-      - LOG_FILE=order.log
+      - LOG_FILE=/app/logs/order.log
     volumes:
       # Mount data directory for persistent sessions and logs
       - ./data:/app/data
