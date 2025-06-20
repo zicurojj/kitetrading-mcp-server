@@ -157,7 +157,7 @@ def browser_assisted_auth():
         login_url = kc.login_url()
         
         # Start local server to capture redirect
-        port = urlparse(REDIRECT_URI).port or 8080
+        port = int(os.getenv("AUTH_PORT", urlparse(REDIRECT_URI).port or 8080))
         print(f"🔌 Starting local server on port {port}...")
         
         try:
