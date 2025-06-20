@@ -5,7 +5,7 @@ APP_DATA=${DATA_DIR:-/app/data}
 APP_LOGS=${LOG_DIR:-/app/logs}
 
 mkdir -p "$APP_DATA" "$APP_LOGS"
-chown -R appuser:appuser "$APP_DATA" "$APP_LOGS"
+# chown -R appuser:appuser "$APP_DATA" "$APP_LOGS"
 
 wait_for_dependencies() {
     echo "Checking dependencies..."

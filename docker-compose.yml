@@ -3,6 +3,7 @@ version: '3.8'
 services:
   # FastAPI Trading Server (Production Ready)
   kite-trading:
+    command: fastapi
     build:
       context: .
       dockerfile: Dockerfile
