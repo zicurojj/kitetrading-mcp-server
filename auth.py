@@ -89,7 +89,7 @@ class KiteAuth:
 
     def start_auth_flow(self):
         login_url = self.kc.login_url()
-        webbrowser.open(login_url)
+        print(f"\n🌐 Please open this URL in your browser to authenticate:\n{login_url}\n")
         port = urlparse(REDIRECT_URI).port or 8080
         server = HTTPServer(('localhost', port), AuthHandler)
         server.request_token = None
