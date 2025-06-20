@@ -17,11 +17,6 @@ run_fastapi() {
     exec python fastapi_server.py
 }
 
-run_mcp() {
-    echo "Starting MCP Trading Server..."
-    exec python index.py
-}
-
 run_setup_auth() {
     echo "Running authentication setup..."
     exec python setup_auth.py
@@ -32,15 +27,11 @@ case "${1:-fastapi}" in
         wait_for_dependencies
         run_fastapi
         ;;
-    mcp)
-        wait_for_dependencies
-        run_mcp
-        ;;
     setup-auth)
         run_setup_auth
         ;;
     *)
-        echo "Usage: $0 {fastapi|mcp|setup-auth}"
+        echo "Usage: $0 {fastapi|setup-auth}"
         exit 1
         ;;
 esac

@@ -1,13 +1,13 @@
-# Kite Trading MCP Server (Python)
+# Kite Trading Server (Python)
 
-A Python MCP (Model Context Protocol) server for trading operations using the Kite Connect API, designed to work seamlessly with Claude Desktop.
+A Python FastAPI server for trading operations using the Kite Connect API.
 
 ## Features
 
 - **Simple trading operations**: Buy, sell, and view portfolio
 - **Real-time order execution**: Direct integration with Zerodha Kite Connect API
 - **Text file logging**: All operations logged to `/app/logs/order.log`
-- **Claude Desktop integration**: Works directly with Claude Desktop via MCP protocol
+- **REST API**: FastAPI-based REST API for trading operations
 
 ## Setup
 
@@ -21,14 +21,20 @@ A Python MCP (Model Context Protocol) server for trading operations using the Ki
    # Edit .env with your Kite Connect credentials
    ```
 
-2. **Start FastAPI server:**
+2. **Deploy:**
    ```bash
-   docker-compose up fastapi-server
+   chmod +x deploy.sh
+   ./deploy.sh dev
    ```
 
-3. **Access API:** http://localhost:8000/docs
+3. **Authenticate:**
+   ```bash
+   docker-compose exec kite-trading python browser_auth.py
+   ```
 
-📖 **Full Docker guide:** [README_Docker.md](README_Docker.md)
+4. **Access API:** http://localhost:8080/docs
+
+📖 **Production deployment:** [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md)
 
 ### 🐍 Local Python Setup
 
@@ -59,41 +65,15 @@ A Python MCP (Model Context Protocol) server for trading operations using the Ki
    - Save your access token securely
    - Test the connection
 
-5. **Run the servers:**
+5. **Run the server:**
    ```bash
    python fastapi_server.py  # REST API server
-   # OR
-   python index.py          # MCP server for Claude Desktop
    ```
 
 **Note:** You only need to authenticate once. The server will automatically:
 - Use your saved access token
 - Refresh tokens when they expire
 - Handle re-authentication if needed
-
-## Claude Desktop Integration
-
-1. Create `claude_desktop_config.json` in:
-   - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-   - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-   - **Linux**: `~/.config/Claude/claude_desktop_config.json`
-
-   With content:
-   ```json
-   {
-     "mcpServers": {
-       "trading-server": {
-         "command": "python",
-         "args": ["/path/to/your/kite-mcp-server2/index.py"],
-         "env": {}
-       }
-     }
-   }
-   ```
-
-   **Note**: Replace `/path/to/your/kite-mcp-server2/` with your actual project path.
-
-2. Restart Claude Desktop
 
 ## Available Tools
 
@@ -117,7 +97,7 @@ A Python MCP (Model Context Protocol) server for trading operations using the Ki
 
 ## Usage Examples
 
-In Claude Desktop, you can say:
+You can use the REST API endpoints or the client example:
 
 **Stocks:**
 - "Buy 10 shares of Reliance"
@@ -138,12 +118,11 @@ In Claude Desktop, you can say:
 - "Buy 50 shares of HDFC with stop loss at 1500"
 - "Sell 100 shares of ICICI with limit order at 950"
 
-Claude will automatically use the trading tools with appropriate parameters for each order type.
+Use the FastAPI endpoints or the provided client example to execute these operations.
 
 ## File Structure
 
 ### Core Files
-- `index.py`: Main MCP server implementation
 - `fastapi_server.py`: FastAPI REST server implementation
 - `trade.py`: Trading operations using Kite Connect API
 - `auth.py`: Automated OAuth authentication
@@ -157,7 +136,7 @@ Claude will automatically use the trading tools with appropriate parameters for 
 
 ### Testing & Examples
 - `test_env.py`: Environment variable testing
-- `test_trade.py`: MCP server testing
+- `test_trade.py`: Trading functionality testing
 - `client_example.py`: FastAPI client example
 
 ### Docker & Deployment
@@ -195,10 +174,10 @@ All trading operations are logged to `/app/logs/order.log` with detailed informa
 2. **"Module not found"**: Run `pip install -r requirements.txt`
 3. **"Connection refused"**: Ensure Kite Connect API is accessible
 
-## Converting from JavaScript
+## API Documentation
 
-This Python server is equivalent to the JavaScript version with the same functionality:
-- Same tool names and descriptions
-- Same input/output formats
-- Same MCP protocol compliance
-- Compatible with Claude Desktop
+The FastAPI server provides:
+- Interactive API documentation at `/docs`
+- OpenAPI specification at `/openapi.json`
+- RESTful endpoints for all trading operations
+- Comprehensive error handling and logging

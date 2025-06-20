@@ -27,7 +27,7 @@ except ImportError:
     class TokenException(KiteException): pass
 
 from logger import log_order
-from auth import get_valid_access_token
+from docker_auth import get_valid_access_token
 
 API_KEY = os.getenv("KITE_API_KEY")
 DATA_DIR = os.getenv("DATA_DIR", "./data")

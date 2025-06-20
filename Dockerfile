@@ -53,14 +53,10 @@ ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 # Default command (can be overridden)
 CMD ["fastapi"]
 
-# Multi-stage build for MCP server
-FROM base as mcp-server
-CMD ["python", "index.py"]
-
-# Multi-stage build for FastAPI server  
-FROM base as fastapi-server
+# Production stage
+FROM base as production
 CMD ["python", "fastapi_server.py"]
 
 # Default stage
-FROM fastapi-server as final
+FROM production as final
 
